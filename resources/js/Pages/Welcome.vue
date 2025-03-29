@@ -172,7 +172,6 @@ const isToday = (date) => {
         date.getFullYear() === today.value.getFullYear();
 };
 
-// Toggle shift selection (add to pending changes)
 const toggleShift = (date, shift) => {
     const currentUser = page.props.auth.user;
     if (!currentUser) return;
@@ -180,6 +179,11 @@ const toggleShift = (date, shift) => {
     const dateKey = formatDateForInput(date);
     const users = weekShifts.value[dateKey][shift.label];
     const userIndex = users.indexOf(currentUser.name);
+
+    // If trying to add to a shift but it's already taken by someone else, don't allow
+    if (userIndex === -1 && isShiftTakenByOthers(date, shift)) {
+        return; // Shift is already taken by someone else
+    }
 
     // Add a pending change
     const existingChangeIndex = pendingChanges.value.findIndex(
@@ -238,6 +242,20 @@ const isUserInShift = (date, shift) => {
     if (!weekShifts.value[dateKey]) return false;
 
     return weekShifts.value[dateKey][shift.label].includes(currentUser.name);
+};
+
+const isShiftTakenByOthers = (date, shift) => {
+    const currentUser = page.props.auth.user;
+    if (!currentUser) return false;
+
+    const dateKey = formatDateForInput(date);
+    if (!weekShifts.value[dateKey]) return false;
+
+    const users = weekShifts.value[dateKey][shift.label];
+
+    // If there are users in this shift and none of them is the current user,
+    // then the shift is taken by others
+    return users.length > 0 && !users.includes(currentUser.name);
 };
 
 // Check if there are pending changes
@@ -353,12 +371,14 @@ const hasPendingChanges = computed(() => {
                                     :key="dayIndex"
                                     class="p-2 border text-center align-top"
                                     :class="{
-                                    'cursor-pointer': $page.props.auth.user,
-                                    'bg-blue-50 dark:bg-blue-900/20': isToday(day),
-                                    'bg-blue-500 text-white hover:bg-blue-600': isUserInShift(day, shift),
-                                    'hover:bg-gray-100 dark:hover:bg-gray-700': !isUserInShift(day, shift) && $page.props.auth.user
-                                }"
-                                    @click="$page.props.auth.user && toggleShift(day, shift)"
+        'cursor-pointer': $page.props.auth.user && !isShiftTakenByOthers(day, shift),
+        'cursor-not-allowed': $page.props.auth.user && isShiftTakenByOthers(day, shift),
+        'bg-blue-50 dark:bg-blue-900/20': isToday(day),
+        'bg-blue-500 text-white hover:bg-blue-600': isUserInShift(day, shift),
+        'hover:bg-gray-100 dark:hover:bg-gray-700': !isUserInShift(day, shift) && !isShiftTakenByOthers(day, shift) && $page.props.auth.user,
+        'opacity-75': $page.props.auth.user && isShiftTakenByOthers(day, shift)
+    }"
+                                    @click="$page.props.auth.user && !isShiftTakenByOthers(day, shift) && toggleShift(day, shift)"
                                 >
                                     <div v-if="weekShifts[formatDateForInput(day)]">
                                         <div
