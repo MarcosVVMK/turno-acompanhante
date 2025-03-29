@@ -11,17 +11,15 @@ const props = defineProps({
     phpVersion: String,
 });
 
-// Date handling with UTC-3 adjustment
 const getLocalDate = () => {
     const date = new Date();
-    // Adjust for UTC-3 timezone
-    return new Date(date.getTime() - (3 * 60 * 60 * 1000));
+    return new Date(date.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
 };
 
-// Get Monday of current week
 const getStartOfWeek = (date) => {
-    const day = date.getDay(); // 0 = Sunday, 1 = Monday
-    const diff = day === 0 ? 6 : day - 1; // If Sunday, go back 6 days, otherwise day-1
+    const day = date.getDay();
+    console.log(date)
+    const diff = day // If Sunday, go back 6 days, otherwise day-1
     const monday = new Date(date);
     monday.setDate(date.getDate() - diff);
     return monday;
