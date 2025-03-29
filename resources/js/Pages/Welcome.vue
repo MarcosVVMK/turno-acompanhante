@@ -58,12 +58,19 @@ function getDayOfWeek(date) {
 }
 
 // Initialize dates
-const today = getLocalDate();
-const currentWeekStart = getStartOfWeek(today);
-const selectedWeekStart = ref(formatDateForInput(currentWeekStart));
-const weekDays = ref(getWeekDays(currentWeekStart));
+const today = ref(getLocalDate());
+const selectedWeekStart = ref('');
+const weekDays = ref([]);
 const isLoading = ref(false);
 const isSaving = ref(false);
+
+// Function to reset to current week
+const resetToCurrentWeek = () => {
+    today.value = getLocalDate();
+    const currentWeekStart = getStartOfWeek(today.value);
+    selectedWeekStart.value = formatDateForInput(currentWeekStart);
+    weekDays.value = getWeekDays(currentWeekStart);
+};
 
 // Shifts definition
 const shiftTypes = [
@@ -130,6 +137,7 @@ const loadShifts = async () => {
 
 // Initialize on component mount
 onMounted(() => {
+    resetToCurrentWeek();
     initializeWeekShifts();
     loadShifts();
 });
@@ -168,9 +176,9 @@ const handleWeekChange = (event) => {
 
 // Check if date is today
 const isToday = (date) => {
-    return date.getDate() === today.getDate() &&
-        date.getMonth() === today.getMonth() &&
-        date.getFullYear() === today.getFullYear();
+    return date.getDate() === today.value.getDate() &&
+        date.getMonth() === today.value.getMonth() &&
+        date.getFullYear() === today.value.getFullYear();
 };
 
 // Toggle shift selection (add to pending changes)
@@ -247,7 +255,6 @@ const hasPendingChanges = computed(() => {
     return pendingChanges.value.length > 0;
 });
 </script>
-
 <template>
     <Head title="Welcome" />
 
@@ -278,12 +285,8 @@ const hasPendingChanges = computed(() => {
                     </h2>
 
                     <!-- Week Selection Controls -->
-                    <div class="mt-4 flex flex-col items-center">
-                        <label for="week-picker" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 text-center">
-                            Selecione a semana:
-                        </label>
-
-                        <div class="flex items-center space-x-2">
+                    <div class="mt-4">
+                        <div class="flex items-center justify-between">
                             <button
                                 @click="previousWeek"
                                 class="px-3 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-white"
@@ -292,17 +295,9 @@ const hasPendingChanges = computed(() => {
                                 &lt; Anterior
                             </button>
 
-                            <div class="relative" @click="$refs.weekPicker.showPicker ? $refs.weekPicker.showPicker() : $refs.weekPicker.click()">
-                                <input
-                                    ref="weekPicker"
-                                    type="date"
-                                    id="week-picker"
-                                    v-model="selectedWeekStart"
-                                    @change="handleWeekChange"
-                                    class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white cursor-pointer"
-                                    :disabled="isLoading"
-                                />
-                                <div class="absolute inset-0 cursor-pointer" @click.stop></div>
+                            <div class="text-center font-medium text-gray-700 dark:text-gray-300">
+                                {{ formatDateDisplay(new Date(selectedWeekStart)) }} -
+                                {{ formatDateDisplay(weekDays[6] || new Date(selectedWeekStart)) }}
                             </div>
 
                             <button
@@ -311,6 +306,17 @@ const hasPendingChanges = computed(() => {
                                 :disabled="isLoading"
                             >
                                 Próxima &gt;
+                            </button>
+                        </div>
+
+                        <!-- Optional: Add a reset to current week button -->
+                        <div class="mt-2 text-center">
+                            <button
+                                @click="resetToCurrentWeek"
+                                class="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                                :disabled="isLoading"
+                            >
+                                Voltar para semana atual
                             </button>
                         </div>
                     </div>
