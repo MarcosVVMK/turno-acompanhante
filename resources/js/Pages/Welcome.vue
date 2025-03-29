@@ -1,6 +1,6 @@
 <script setup>
-import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
-import { ref, computed, onMounted, watch } from 'vue';
+import {Head, Link, useForm, usePage} from '@inertiajs/vue3';
+import {ref, computed, onMounted, watch} from 'vue';
 import axios from 'axios';
 
 const page = usePage();
@@ -13,7 +13,7 @@ const props = defineProps({
 
 const getLocalDate = () => {
     const date = new Date();
-    return new Date(date.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+    return new Date(date.toLocaleString('en-US', {timeZone: 'America/Sao_Paulo'}));
 };
 
 const getStartOfWeek = (date) => {
@@ -71,9 +71,9 @@ const resetToCurrentWeek = () => {
 
 // Shifts definition
 const shiftTypes = [
-    { label: 'Manhã', time: '07h - 13h' },
-    { label: 'Tarde', time: '13h - 19h' },
-    { label: 'Noite', time: '19h - 07h' },
+    {label: 'Manhã', time: '07h - 13h'},
+    {label: 'Tarde', time: '13h - 19h'},
+    {label: 'Noite', time: '19h - 07h'},
 ];
 
 // Data structure to store all shifts for the week
@@ -107,7 +107,7 @@ const loadShifts = async () => {
 
     try {
         const response = await axios.get('/api/shifts', {
-            params: { start_date: startDate, end_date: endDate }
+            params: {start_date: startDate, end_date: endDate}
         });
 
         // Initialize empty shifts structure
@@ -162,13 +162,6 @@ const nextWeek = () => {
     nextWeekStart.setDate(nextWeekStart.getDate() + 8);
     selectedWeekStart.value = formatDateForInput(nextWeekStart);
     weekDays.value = getWeekDays(nextWeekStart);
-};
-
-const handleWeekChange = (event) => {
-    const date = new Date(event.target.value);
-    const newWeekStart = getStartOfWeek(date);
-    selectedWeekStart.value = formatDateForInput(newWeekStart);
-    weekDays.value = getWeekDays(newWeekStart);
 };
 
 // Check if date is today
@@ -253,7 +246,7 @@ const hasPendingChanges = computed(() => {
 });
 </script>
 <template>
-    <Head title="Welcome" />
+    <Head title="Welcome"/>
 
     <div
         class="relative min-h-screen bg-gray-100 bg-center selection:bg-[#FF2D20] selection:text-white dark:bg-gray-900"
@@ -263,13 +256,15 @@ const hasPendingChanges = computed(() => {
                 v-if="$page.props.auth.user"
                 :href="route('dashboard')"
                 class="font-semibold text-gray-600 hover:text-gray-900 focus:outline focus:outline-2 focus:rounded-sm focus:outline-[#FF2D20] dark:text-gray-400 dark:hover:text-white"
-            >Dashboard</Link>
+            >Dashboard
+            </Link>
 
             <template v-else>
                 <Link
                     :href="route('login')"
                     class="font-semibold text-gray-600 hover:text-gray-900 focus:outline focus:outline-2 focus:rounded-sm focus:outline-[#FF2D20] dark:text-gray-400 dark:hover:text-white"
-                >Log in</Link>
+                >Log in
+                </Link>
             </template>
         </div>
 
@@ -320,8 +315,11 @@ const hasPendingChanges = computed(() => {
 
                     <!-- Loading Indicator -->
                     <div v-if="isLoading" class="text-center py-4">
-                        <div class="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]" role="status">
-                            <span class="!absolute !-m-px !h-px !w-px !overflow-hidden !whitespace-nowrap !border-0 !p-0 ![clip:rect(0,0,0,0)]">Loading...</span>
+                        <div
+                            class="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]"
+                            role="status">
+                            <span
+                                class="!absolute !-m-px !h-px !w-px !overflow-hidden !whitespace-nowrap !border-0 !p-0 ![clip:rect(0,0,0,0)]">Loading...</span>
                         </div>
                         <p class="mt-2 text-gray-600 dark:text-gray-300">Carregando turnos...</p>
                     </div>
@@ -331,7 +329,8 @@ const hasPendingChanges = computed(() => {
                         <table class="min-w-full border-collapse">
                             <thead>
                             <tr>
-                                <th class="p-2 border bg-gray-50 dark:bg-gray-700 dark:text-white text-center">Turno</th>
+                                <th class="p-2 border bg-gray-50 dark:bg-gray-700 dark:text-white text-center">Turno
+                                </th>
                                 <th
                                     v-for="(day, index) in weekDays"
                                     :key="index"
@@ -375,23 +374,24 @@ const hasPendingChanges = computed(() => {
                         </table>
                     </div>
 
-                    <!-- Save Button -->
-                    <div class="mt-6 flex justify-center">
+                    <!-- Save Button - Only visible for logged in users -->
+                    <div v-if="$page.props.auth.user" class="mt-6 flex justify-center">
                         <button
                             @click="saveChanges"
                             class="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                             :disabled="!hasPendingChanges || isSaving"
                         >
-                            <span v-if="isSaving">
-                                <span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-solid border-current border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite] mr-2"></span>
-                                Salvando...
-                            </span>
+        <span v-if="isSaving">
+            <span
+                class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-solid border-current border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite] mr-2"></span>
+            Salvando...
+        </span>
                             <span v-else>
-                                Salvar Alterações
-                                <span v-if="hasPendingChanges" class="ml-2 bg-white text-blue-600 rounded-full px-2 py-1 text-xs">
-                                    {{ pendingChanges.length }}
-                                </span>
-                            </span>
+            Salvar Alterações
+            <span v-if="hasPendingChanges" class="ml-2 bg-white text-blue-600 rounded-full px-2 py-1 text-xs">
+                {{ pendingChanges.length }}
+            </span>
+        </span>
                         </button>
                     </div>
                 </div>
