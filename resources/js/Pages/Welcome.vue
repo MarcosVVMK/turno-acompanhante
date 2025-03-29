@@ -1,6 +1,7 @@
 <script setup>
 import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
+import axios from 'axios';
 
 const page = usePage();
 const props = defineProps({
@@ -61,6 +62,8 @@ const today = getLocalDate();
 const currentWeekStart = getStartOfWeek(today);
 const selectedWeekStart = ref(formatDateForInput(currentWeekStart));
 const weekDays = ref(getWeekDays(currentWeekStart));
+const isLoading = ref(false);
+const isSaving = ref(false);
 
 // Shifts definition
 const shiftTypes = [
@@ -72,6 +75,10 @@ const shiftTypes = [
 // Data structure to store all shifts for the week
 // Format: { 'YYYY-MM-DD': { 'Manhã': ['User1', 'User2'], 'Tarde': [...], 'Noite': [...] } }
 const weekShifts = ref({});
+
+// Pending changes to be saved
+// Format: [{ date: 'YYYY-MM-DD', shift: 'Manhã', action: 'add'|'remove' }]
+const pendingChanges = ref([]);
 
 // Initialize weekShifts with empty arrays for all days
 const initializeWeekShifts = () => {
@@ -86,15 +93,55 @@ const initializeWeekShifts = () => {
     weekShifts.value = shifts;
 };
 
+// Load existing shifts from the database
+const loadShifts = async () => {
+    if (!page.props.auth.user) return;
+
+    isLoading.value = true;
+    const startDate = selectedWeekStart.value;
+    const endDate = formatDateForInput(new Date(new Date(startDate).setDate(new Date(startDate).getDate() + 6)));
+
+    try {
+        const response = await axios.get('/api/shifts', {
+            params: { start_date: startDate, end_date: endDate }
+        });
+
+        // Initialize empty shifts structure
+        initializeWeekShifts();
+
+        // Populate with data from server
+        if (response.data.shifts) {
+            response.data.shifts.forEach(shift => {
+                if (weekShifts.value[shift.date] &&
+                    weekShifts.value[shift.date][shift.shift]) {
+                    weekShifts.value[shift.date][shift.shift].push(shift.user.name);
+                }
+            });
+        }
+
+        // Clear pending changes after loading new data
+        pendingChanges.value = [];
+    } catch (error) {
+        console.error('Failed to load shifts:', error);
+    } finally {
+        isLoading.value = false;
+    }
+};
+
 // Initialize on component mount
 onMounted(() => {
     initializeWeekShifts();
+    loadShifts();
+});
+
+// Watch for week changes
+watch(selectedWeekStart, () => {
+    loadShifts();
 });
 
 // Form for API submissions
 const form = useForm({
-    shift: null,
-    date: null
+    shifts: []
 });
 
 // Week navigation
@@ -103,7 +150,6 @@ const previousWeek = () => {
     prevWeekStart.setDate(prevWeekStart.getDate() - 7);
     selectedWeekStart.value = formatDateForInput(prevWeekStart);
     weekDays.value = getWeekDays(prevWeekStart);
-    initializeWeekShifts();
 };
 
 const nextWeek = () => {
@@ -111,7 +157,6 @@ const nextWeek = () => {
     nextWeekStart.setDate(nextWeekStart.getDate() + 7);
     selectedWeekStart.value = formatDateForInput(nextWeekStart);
     weekDays.value = getWeekDays(nextWeekStart);
-    initializeWeekShifts();
 };
 
 const handleWeekChange = (event) => {
@@ -119,7 +164,6 @@ const handleWeekChange = (event) => {
     const newWeekStart = getStartOfWeek(date);
     selectedWeekStart.value = formatDateForInput(newWeekStart);
     weekDays.value = getWeekDays(newWeekStart);
-    initializeWeekShifts();
 };
 
 // Check if date is today
@@ -129,7 +173,7 @@ const isToday = (date) => {
         date.getFullYear() === today.getFullYear();
 };
 
-// Toggle shift selection
+// Toggle shift selection (add to pending changes)
 const toggleShift = (date, shift) => {
     const currentUser = page.props.auth.user;
     if (!currentUser) return;
@@ -138,18 +182,53 @@ const toggleShift = (date, shift) => {
     const users = weekShifts.value[dateKey][shift.label];
     const userIndex = users.indexOf(currentUser.name);
 
-    if (userIndex === -1) {
-        // Add user to shift
-        users.push(currentUser.name);
+    // Add a pending change
+    const existingChangeIndex = pendingChanges.value.findIndex(
+        change => change.date === dateKey && change.shift === shift.label
+    );
+
+    if (existingChangeIndex !== -1) {
+        // Remove the existing change if it exists (toggle back)
+        pendingChanges.value.splice(existingChangeIndex, 1);
     } else {
-        // Remove user from shift
-        users.splice(userIndex, 1);
+        // Add a new pending change
+        pendingChanges.value.push({
+            date: dateKey,
+            shift: shift.label,
+            action: userIndex === -1 ? 'add' : 'remove'
+        });
     }
 
-    // Send to server
-    form.shift = shift.label;
-    form.date = dateKey;
-    form.post(route('shifts.store'));
+    // Apply the change locally for UI feedback
+    if (userIndex === -1) {
+        // Add user to shift in UI
+        users.push(currentUser.name);
+    } else {
+        // Remove user from shift in UI
+        users.splice(userIndex, 1);
+    }
+};
+
+// Save all pending changes
+const saveChanges = () => {
+    if (pendingChanges.value.length === 0) return;
+
+    isSaving.value = true;
+
+    form.shifts = pendingChanges.value;
+    form.post(route('shifts.batch-store'), {
+        onSuccess: () => {
+            // Clear pending changes after successful save
+            pendingChanges.value = [];
+            isSaving.value = false;
+
+            // Reload shifts to get the updated data
+            loadShifts();
+        },
+        onError: () => {
+            isSaving.value = false;
+        }
+    });
 };
 
 // Check if user is in shift
@@ -162,6 +241,11 @@ const isUserInShift = (date, shift) => {
 
     return weekShifts.value[dateKey][shift.label].includes(currentUser.name);
 };
+
+// Check if there are pending changes
+const hasPendingChanges = computed(() => {
+    return pendingChanges.value.length > 0;
+});
 </script>
 
 <template>
@@ -203,6 +287,7 @@ const isUserInShift = (date, shift) => {
                             <button
                                 @click="previousWeek"
                                 class="px-3 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-white"
+                                :disabled="isLoading"
                             >
                                 &lt; Anterior
                             </button>
@@ -215,6 +300,7 @@ const isUserInShift = (date, shift) => {
                                     v-model="selectedWeekStart"
                                     @change="handleWeekChange"
                                     class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white cursor-pointer"
+                                    :disabled="isLoading"
                                 />
                                 <div class="absolute inset-0 cursor-pointer" @click.stop></div>
                             </div>
@@ -222,14 +308,23 @@ const isUserInShift = (date, shift) => {
                             <button
                                 @click="nextWeek"
                                 class="px-3 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-white"
+                                :disabled="isLoading"
                             >
                                 Próxima &gt;
                             </button>
                         </div>
                     </div>
 
+                    <!-- Loading Indicator -->
+                    <div v-if="isLoading" class="text-center py-4">
+                        <div class="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]" role="status">
+                            <span class="!absolute !-m-px !h-px !w-px !overflow-hidden !whitespace-nowrap !border-0 !p-0 ![clip:rect(0,0,0,0)]">Loading...</span>
+                        </div>
+                        <p class="mt-2 text-gray-600 dark:text-gray-300">Carregando turnos...</p>
+                    </div>
+
                     <!-- Week Calendar Table -->
-                    <div class="mt-6 overflow-x-auto">
+                    <div v-if="!isLoading" class="mt-6 overflow-x-auto">
                         <table class="min-w-full border-collapse">
                             <thead>
                             <tr>
@@ -275,6 +370,26 @@ const isUserInShift = (date, shift) => {
                             </tr>
                             </tbody>
                         </table>
+                    </div>
+
+                    <!-- Save Button -->
+                    <div class="mt-6 flex justify-center">
+                        <button
+                            @click="saveChanges"
+                            class="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                            :disabled="!hasPendingChanges || isSaving"
+                        >
+                            <span v-if="isSaving">
+                                <span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-solid border-current border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite] mr-2"></span>
+                                Salvando...
+                            </span>
+                            <span v-else>
+                                Salvar Alterações
+                                <span v-if="hasPendingChanges" class="ml-2 bg-white text-blue-600 rounded-full px-2 py-1 text-xs">
+                                    {{ pendingChanges.length }}
+                                </span>
+                            </span>
+                        </button>
                     </div>
                 </div>
             </main>

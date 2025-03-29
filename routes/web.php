@@ -15,6 +15,13 @@ Route::get('/', function () {
     ]);
 });
 
+Route::middleware('auth')->group(function () {
+    // Existing routes...
+
+    Route::post('/shifts/batch', [ShiftController::class, 'batchStore'])->name('shifts.batch-store');
+    Route::get('/api/shifts', [ShiftController::class, 'index']);
+});
+
 Route::get('/dashboard', function () {
     return Inertia::render('Dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');
