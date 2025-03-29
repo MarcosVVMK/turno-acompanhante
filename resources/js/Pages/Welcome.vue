@@ -18,8 +18,7 @@ const getLocalDate = () => {
 
 const getStartOfWeek = (date) => {
     const day = date.getDay();
-    console.log(date)
-    const diff = day // If Sunday, go back 6 days, otherwise day-1
+    const diff = day === 0 ? 6 : day - 1;
     const monday = new Date(date);
     monday.setDate(date.getDate() - diff);
     return monday;
@@ -153,14 +152,14 @@ const form = useForm({
 // Week navigation
 const previousWeek = () => {
     const prevWeekStart = new Date(selectedWeekStart.value);
-    prevWeekStart.setDate(prevWeekStart.getDate() - 7);
+    prevWeekStart.setDate(prevWeekStart.getDate() - 6);
     selectedWeekStart.value = formatDateForInput(prevWeekStart);
     weekDays.value = getWeekDays(prevWeekStart);
 };
 
 const nextWeek = () => {
     const nextWeekStart = new Date(selectedWeekStart.value);
-    nextWeekStart.setDate(nextWeekStart.getDate() + 7);
+    nextWeekStart.setDate(nextWeekStart.getDate() + 8);
     selectedWeekStart.value = formatDateForInput(nextWeekStart);
     weekDays.value = getWeekDays(nextWeekStart);
 };
