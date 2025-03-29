@@ -24,23 +24,20 @@ const getStartOfWeek = (date) => {
     return monday;
 };
 
-// Get array of 7 days for the week
 const getWeekDays = (startDate) => {
     const days = [];
     for (let i = 0; i < 7; i++) {
         const day = new Date(startDate);
-        day.setDate(startDate.getDate() + i);
+        day.setDate(day.getDate() + i);
         days.push(day);
     }
     return days;
 };
 
-// Format date for input field (YYYY-MM-DD)
 function formatDateForInput(date) {
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
-// Format date as DD/MM/YYYY
 function formatDateDisplay(date) {
     if (typeof date === 'string') {
         date = new Date(date);
@@ -48,20 +45,17 @@ function formatDateDisplay(date) {
     return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
 }
 
-// Get day name in Portuguese
 function getDayOfWeek(date) {
     const days = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
     return days[date.getDay()];
 }
 
-// Initialize dates
 const today = ref(getLocalDate());
 const selectedWeekStart = ref('');
 const weekDays = ref([]);
 const isLoading = ref(false);
 const isSaving = ref(false);
 
-// Function to reset to current week
 const resetToCurrentWeek = () => {
     today.value = getLocalDate();
     const currentWeekStart = getStartOfWeek(today.value);
@@ -69,7 +63,6 @@ const resetToCurrentWeek = () => {
     weekDays.value = getWeekDays(currentWeekStart);
 };
 
-// Shifts definition
 const shiftTypes = [
     {label: 'Manhã', time: '07h - 13h'},
     {label: 'Tarde', time: '13h - 19h'},
@@ -87,6 +80,14 @@ const pendingChanges = ref([]);
 // Initialize weekShifts with empty arrays for all days
 const initializeWeekShifts = () => {
     const shifts = {};
+
+    if (!weekDays.value || weekDays.value.length === 0) {
+        console.error('Week days array is empty or undefined');
+        return;
+    }
+    console.log(weekShifts.value);
+    console.log(weekDays.value);
+
     weekDays.value.forEach(day => {
         const dateKey = formatDateForInput(day);
         shifts[dateKey] = {};
@@ -97,13 +98,13 @@ const initializeWeekShifts = () => {
     weekShifts.value = shifts;
 };
 
-// Load existing shifts from the database
+// Remove this early return to allow all users to see shift data
 const loadShifts = async () => {
-    if (!page.props.auth.user) return;
+    // Remove this line: if (!page.props.auth.user) return;
 
     isLoading.value = true;
     const startDate = selectedWeekStart.value;
-    const endDate = formatDateForInput(new Date(new Date(startDate).setDate(new Date(startDate).getDate() + 6)));
+    const endDate = formatDateForInput(new Date(new Date(startDate).setDate(new Date(startDate).getDate() + 7)));
 
     try {
         const response = await axios.get('/api/shifts', {
@@ -212,7 +213,6 @@ const saveChanges = () => {
     if (pendingChanges.value.length === 0) return;
 
     isSaving.value = true;
-
     form.shifts = pendingChanges.value;
     form.post(route('shifts.batch-store'), {
         onSuccess: () => {
@@ -351,13 +351,14 @@ const hasPendingChanges = computed(() => {
                                 <td
                                     v-for="(day, dayIndex) in weekDays"
                                     :key="dayIndex"
-                                    class="p-2 border text-center align-top cursor-pointer h-20"
+                                    class="p-2 border text-center align-top"
                                     :class="{
-                                            'bg-blue-50 dark:bg-blue-900/20': isToday(day),
-                                            'bg-blue-500 text-white hover:bg-blue-600': isUserInShift(day, shift),
-                                            'hover:bg-gray-100 dark:hover:bg-gray-700': !isUserInShift(day, shift)
-                                        }"
-                                    @click="toggleShift(day, shift)"
+                                    'cursor-pointer': $page.props.auth.user,
+                                    'bg-blue-50 dark:bg-blue-900/20': isToday(day),
+                                    'bg-blue-500 text-white hover:bg-blue-600': isUserInShift(day, shift),
+                                    'hover:bg-gray-100 dark:hover:bg-gray-700': !isUserInShift(day, shift) && $page.props.auth.user
+                                }"
+                                    @click="$page.props.auth.user && toggleShift(day, shift)"
                                 >
                                     <div v-if="weekShifts[formatDateForInput(day)]">
                                         <div

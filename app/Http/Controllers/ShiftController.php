@@ -34,10 +34,9 @@ class ShiftController extends Controller
 
         foreach ($request->shifts as $shiftData) {
             if ($shiftData['action'] === 'add') {
-                // Add the shift
+
                 Shift::updateOrCreate(
                     ['user_id' => Auth::id(), 'date' => $shiftData['date'], 'shift' => $shiftData['shift']],
-                    []
                 );
             } else {
                 // Remove the shift

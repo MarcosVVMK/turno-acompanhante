@@ -39,6 +39,12 @@ const showingNavigationDropdown = ref(false);
                                 >
                                     Dashboard
                                 </NavLink>
+                                <NavLink
+                                    :href="'/'"
+                                    :active="route().current('/')"
+                                >
+                                    Calendário
+                                </NavLink>
                             </div>
                         </div>
 
@@ -145,6 +151,13 @@ const showingNavigationDropdown = ref(false);
                             :active="route().current('dashboard')"
                         >
                             Dashboard
+                        </ResponsiveNavLink>
+
+                        <ResponsiveNavLink
+                            :href="'/'"
+                            :active="route().current('/')"
+                        >
+                            Calendário
                         </ResponsiveNavLink>
                     </div>
 
