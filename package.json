@@ -1,12 +1,12 @@
 {
-    "name": "example-app",
+    "name": "turno-acompanhante",
     "engines": {
         "node": "22.x"
     },
     "private": true,
     "type": "module",
     "scripts": {
-        "build": "vue-tsc && vite build && vite build --ssr",
+        "build": "vue-tsc && vite build",
         "dev": "vite",
         "postinstall": "npm run build"
     },
