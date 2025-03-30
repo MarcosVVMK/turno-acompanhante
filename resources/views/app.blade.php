@@ -16,6 +16,7 @@
     </head>
     <body class="font-sans antialiased">
         @inertia
+        <div id="app" data-page="{{ json_encode($page) }}"></div>
         @vite(['resources/js/app.ts', "resources/js/Pages/{$page['component']}.vue"])
     </body>
 </html>
