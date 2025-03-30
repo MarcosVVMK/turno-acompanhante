@@ -7,8 +7,7 @@
     "type": "module",
     "scripts": {
         "build": "vue-tsc && vite build && vite build --ssr",
-        "dev": "vite",
-        "postinstall": "npm run prod"
+        "dev": "vite"
     },
     "devDependencies": {
         "@inertiajs/vue3": "^2.0.0",
