@@ -13,10 +13,11 @@ class ShiftController extends Controller
         $request->validate([
             'shift' => 'required|string',
             'date' => 'required|date',
+            'user_id' => 'required|exists:users,id',
         ]);
 
         Shift::updateOrCreate(
-            ['user_id' => Auth::id(), 'date' => $request->date],
+            ['user_id' => $request->user_id, 'date' => $request->date],
             ['shift' => $request->shift]
         );
 
@@ -30,24 +31,27 @@ class ShiftController extends Controller
             'shifts.*.date' => 'required|date',
             'shifts.*.shift' => 'required|string',
             'shifts.*.action' => 'required|in:add,remove',
+            'shifts.*.user_id' => 'required|exists:users,id',
         ]);
 
         foreach ($request->shifts as $shiftData) {
             if ($shiftData['action'] === 'add') {
-
                 Shift::updateOrCreate(
-                    ['user_id' => Auth::id(), 'date' => $shiftData['date'], 'shift' => $shiftData['shift']],
+                    [
+                        'user_id' => $shiftData['user_id'],
+                        'date' => $shiftData['date'],
+                        'shift' => $shiftData['shift']
+                    ],
                 );
             } else {
                 // Remove the shift
-                Shift::where('user_id', Auth::id())
+                Shift::where('user_id', $shiftData['user_id'])
                     ->where('date', $shiftData['date'])
                     ->where('shift', $shiftData['shift'])
                     ->delete();
             }
         }
 
-        // Return a redirect instead of JSON
         return redirect()->back();
     }
 

@@ -39,12 +39,6 @@ const showingNavigationDropdown = ref(false);
                                 >
                                     Dashboard
                                 </NavLink>
-                                <NavLink
-                                    :href="'/'"
-                                    :active="route().current('/')"
-                                >
-                                    Calendário
-                                </NavLink>
                             </div>
                         </div>
 

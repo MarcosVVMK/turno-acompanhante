@@ -55,6 +55,20 @@ const selectedWeekStart = ref('');
 const weekDays = ref([]);
 const isLoading = ref(false);
 const isSaving = ref(false);
+const allUsers = ref([]);
+const showUserSelector = ref(false);
+const selectedShiftInfo = ref(null);
+const weekShifts = ref({});
+const pendingChanges = ref([]);
+
+const loadUsers = async () => {
+    try {
+        const response = await axios.get('/api/users');
+        allUsers.value = response.data;
+    } catch (error) {
+        console.error('Falha ao carregar usuários:', error);
+    }
+};
 
 const resetToCurrentWeek = () => {
     today.value = getLocalDate();
@@ -69,24 +83,12 @@ const shiftTypes = [
     {label: 'Noite', time: '19h - 07h'},
 ];
 
-// Data structure to store all shifts for the week
-// Format: { 'YYYY-MM-DD': { 'Manhã': ['User1', 'User2'], 'Tarde': [...], 'Noite': [...] } }
-const weekShifts = ref({});
-
-// Pending changes to be saved
-// Format: [{ date: 'YYYY-MM-DD', shift: 'Manhã', action: 'add'|'remove' }]
-const pendingChanges = ref([]);
-
-// Initialize weekShifts with empty arrays for all days
 const initializeWeekShifts = () => {
     const shifts = {};
 
     if (!weekDays.value || weekDays.value.length === 0) {
-        console.error('Week days array is empty or undefined');
         return;
     }
-    console.log(weekShifts.value);
-    console.log(weekDays.value);
 
     weekDays.value.forEach(day => {
         const dateKey = formatDateForInput(day);
@@ -98,10 +100,7 @@ const initializeWeekShifts = () => {
     weekShifts.value = shifts;
 };
 
-// Remove this early return to allow all users to see shift data
 const loadShifts = async () => {
-    // Remove this line: if (!page.props.auth.user) return;
-
     isLoading.value = true;
     const startDate = selectedWeekStart.value;
     const endDate = formatDateForInput(new Date(new Date(startDate).setDate(new Date(startDate).getDate() + 7)));
@@ -111,20 +110,20 @@ const loadShifts = async () => {
             params: {start_date: startDate, end_date: endDate}
         });
 
-        // Initialize empty shifts structure
         initializeWeekShifts();
 
-        // Populate with data from server
         if (response.data.shifts) {
             response.data.shifts.forEach(shift => {
                 if (weekShifts.value[shift.date] &&
                     weekShifts.value[shift.date][shift.shift]) {
-                    weekShifts.value[shift.date][shift.shift].push(shift.user.name);
+                    weekShifts.value[shift.date][shift.shift].push({
+                        name: shift.user.name,
+                        id: shift.user.id
+                    });
                 }
             });
         }
 
-        // Clear pending changes after loading new data
         pendingChanges.value = [];
     } catch (error) {
         console.error('Failed to load shifts:', error);
@@ -133,24 +132,21 @@ const loadShifts = async () => {
     }
 };
 
-// Initialize on component mount
 onMounted(() => {
     resetToCurrentWeek();
     initializeWeekShifts();
     loadShifts();
+    loadUsers();
 });
 
-// Watch for week changes
 watch(selectedWeekStart, () => {
     loadShifts();
 });
 
-// Form for API submissions
 const form = useForm({
     shifts: []
 });
 
-// Week navigation
 const previousWeek = () => {
     const prevWeekStart = new Date(selectedWeekStart.value);
     prevWeekStart.setDate(prevWeekStart.getDate() - 6);
@@ -165,7 +161,6 @@ const nextWeek = () => {
     weekDays.value = getWeekDays(nextWeekStart);
 };
 
-// Check if date is today
 const isToday = (date) => {
     return date.getDate() === today.value.getDate() &&
         date.getMonth() === today.value.getMonth() &&
@@ -173,46 +168,74 @@ const isToday = (date) => {
 };
 
 const toggleShift = (date, shift) => {
-    const currentUser = page.props.auth.user;
-    if (!currentUser) return;
+    if (!page.props.auth.user) return;
 
-    const dateKey = formatDateForInput(date);
-    const users = weekShifts.value[dateKey][shift.label];
-    const userIndex = users.indexOf(currentUser.name);
+    selectedShiftInfo.value = {
+        date: date,
+        shift: shift.label,
+        dateKey: formatDateForInput(date)
+    };
 
-    // If trying to add to a shift but it's already taken by someone else, don't allow
-    if (userIndex === -1 && isShiftTakenByOthers(date, shift)) {
-        return; // Shift is already taken by someone else
-    }
+    showUserSelector.value = true;
+};
 
-    // Add a pending change
-    const existingChangeIndex = pendingChanges.value.findIndex(
-        change => change.date === dateKey && change.shift === shift.label
-    );
+const assignUserToShift = (user) => {
+    if (!selectedShiftInfo.value) return;
 
-    if (existingChangeIndex !== -1) {
-        // Remove the existing change if it exists (toggle back)
-        pendingChanges.value.splice(existingChangeIndex, 1);
-    } else {
-        // Add a new pending change
+    const { dateKey, shift } = selectedShiftInfo.value;
+    const users = weekShifts.value[dateKey][shift];
+
+    const userIndex = users.findIndex(u => {
+        if (typeof u === 'object') {
+            return u.id === user.id;
+        }
+        return u === user.name;
+    });
+
+    if (userIndex === -1) {
+        if (users.length > 0) {
+            const existingUser = users[0];
+            const existingUserId = typeof existingUser === 'object'
+                ? existingUser.id
+                : allUsers.value.find(u => u.name === existingUser)?.id;
+
+            if (existingUserId) {
+                pendingChanges.value.push({
+                    date: dateKey,
+                    shift: shift,
+                    action: 'remove',
+                    user_id: existingUserId
+                });
+            }
+
+            users.length = 0;
+        }
+
+        users.push({
+            name: user.name,
+            id: user.id
+        });
+
         pendingChanges.value.push({
             date: dateKey,
-            shift: shift.label,
-            action: userIndex === -1 ? 'add' : 'remove'
+            shift: shift,
+            action: 'add',
+            user_id: user.id
+        });
+    } else {
+        users.splice(userIndex, 1);
+
+        pendingChanges.value.push({
+            date: dateKey,
+            shift: shift,
+            action: 'remove',
+            user_id: user.id
         });
     }
 
-    // Apply the change locally for UI feedback
-    if (userIndex === -1) {
-        // Add user to shift in UI
-        users.push(currentUser.name);
-    } else {
-        // Remove user from shift in UI
-        users.splice(userIndex, 1);
-    }
+    showUserSelector.value = false;
 };
 
-// Save all pending changes
 const saveChanges = () => {
     if (pendingChanges.value.length === 0) return;
 
@@ -220,11 +243,8 @@ const saveChanges = () => {
     form.shifts = pendingChanges.value;
     form.post(route('shifts.batch-store'), {
         onSuccess: () => {
-            // Clear pending changes after successful save
             pendingChanges.value = [];
             isSaving.value = false;
-
-            // Reload shifts to get the updated data
             loadShifts();
         },
         onError: () => {
@@ -233,7 +253,6 @@ const saveChanges = () => {
     });
 };
 
-// Check if user is in shift
 const isUserInShift = (date, shift) => {
     const currentUser = page.props.auth.user;
     if (!currentUser) return false;
@@ -241,34 +260,36 @@ const isUserInShift = (date, shift) => {
     const dateKey = formatDateForInput(date);
     if (!weekShifts.value[dateKey]) return false;
 
-    return weekShifts.value[dateKey][shift.label].includes(currentUser.name);
+    return weekShifts.value[dateKey][shift.label].some(u => {
+        return typeof u === 'object' ? u.name === currentUser.name : u === currentUser.name;
+    });
 };
 
-const isShiftTakenByOthers = (date, shift) => {
-    const currentUser = page.props.auth.user;
-    if (!currentUser) return false;
-
-    const dateKey = formatDateForInput(date);
-    if (!weekShifts.value[dateKey]) return false;
-
-    const users = weekShifts.value[dateKey][shift.label];
-
-    // If there are users in this shift and none of them is the current user,
-    // then the shift is taken by others
-    return users.length > 0 && !users.includes(currentUser.name);
-};
-
-// Check if there are pending changes
 const hasPendingChanges = computed(() => {
     return pendingChanges.value.length > 0;
 });
+
+const isUserAssignedToSelectedShift = (user) => {
+    if (!selectedShiftInfo.value) return false;
+
+    const { dateKey, shift } = selectedShiftInfo.value;
+    if (!weekShifts.value[dateKey]) return false;
+
+    return weekShifts.value[dateKey][shift].some(u => {
+        if (typeof u === 'object') {
+            return u.id === user.id;
+        }
+        const existingUser = allUsers.value.find(allUser => allUser.name === u);
+        return existingUser && existingUser.id === user.id;
+    });
+};
+
 </script>
 <template>
     <Head title="Welcome"/>
 
     <div
-        class="relative min-h-screen bg-gray-100 bg-center selection:bg-[#FF2D20] selection:text-white dark:bg-gray-900"
-    >
+        class="relative min-h-screen bg-gray-100 bg-center selection:bg-[#FF2D20] selection:text-white dark:bg-gray-900">
         <div v-if="canLogin" class="fixed top-0 right-0 p-6 text-end">
             <Link
                 v-if="$page.props.auth.user"
@@ -288,13 +309,11 @@ const hasPendingChanges = computed(() => {
 
         <div class="p-6 mx-auto max-w-7xl lg:p-8">
             <main>
-                <!-- Weekly Calendar Component -->
                 <div class="p-6 bg-white shadow rounded-lg dark:bg-gray-800">
                     <h2 class="text-xl font-bold text-gray-700 dark:text-white text-center">
                         Calendário Semanal de Turnos
                     </h2>
 
-                    <!-- Week Selection Controls -->
                     <div class="mt-4">
                         <div class="flex items-center justify-between">
                             <button
@@ -319,7 +338,6 @@ const hasPendingChanges = computed(() => {
                             </button>
                         </div>
 
-                        <!-- Optional: Add a reset to current week button -->
                         <div class="mt-2 text-center">
                             <button
                                 @click="resetToCurrentWeek"
@@ -331,7 +349,6 @@ const hasPendingChanges = computed(() => {
                         </div>
                     </div>
 
-                    <!-- Loading Indicator -->
                     <div v-if="isLoading" class="text-center py-4">
                         <div
                             class="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]"
@@ -342,7 +359,6 @@ const hasPendingChanges = computed(() => {
                         <p class="mt-2 text-gray-600 dark:text-gray-300">Carregando turnos...</p>
                     </div>
 
-                    <!-- Week Calendar Table -->
                     <div v-if="!isLoading" class="mt-6 overflow-x-auto">
                         <table class="min-w-full border-collapse">
                             <thead>
@@ -371,14 +387,12 @@ const hasPendingChanges = computed(() => {
                                     :key="dayIndex"
                                     class="p-2 border text-center align-top"
                                     :class="{
-        'cursor-pointer': $page.props.auth.user && !isShiftTakenByOthers(day, shift),
-        'cursor-not-allowed': $page.props.auth.user && isShiftTakenByOthers(day, shift),
-        'bg-blue-50 dark:bg-blue-900/20': isToday(day),
-        'bg-blue-500 text-white hover:bg-blue-600': isUserInShift(day, shift),
-        'hover:bg-gray-100 dark:hover:bg-gray-700': !isUserInShift(day, shift) && !isShiftTakenByOthers(day, shift) && $page.props.auth.user,
-        'opacity-75': $page.props.auth.user && isShiftTakenByOthers(day, shift)
-    }"
-                                    @click="$page.props.auth.user && !isShiftTakenByOthers(day, shift) && toggleShift(day, shift)"
+                                    'cursor-pointer': $page.props.auth.user,
+                                    'bg-blue-50 dark:bg-blue-900/20': isToday(day),
+                                    'bg-blue-500 text-white hover:bg-blue-600': isUserInShift(day, shift),
+                                    'hover:bg-gray-100 dark:hover:bg-gray-700': !isUserInShift(day, shift) && $page.props.auth.user
+                                }"
+                                    @click="$page.props.auth.user && toggleShift(day, shift)"
                                 >
                                     <div v-if="weekShifts[formatDateForInput(day)]">
                                         <div
@@ -386,7 +400,7 @@ const hasPendingChanges = computed(() => {
                                             :key="userIndex"
                                             class="text-sm py-1"
                                         >
-                                            {{ user }}
+                                            {{ typeof user === 'object' ? user.name : user }}
                                         </div>
                                     </div>
                                 </td>
@@ -395,24 +409,24 @@ const hasPendingChanges = computed(() => {
                         </table>
                     </div>
 
-                    <!-- Save Button - Only visible for logged in users -->
                     <div v-if="$page.props.auth.user" class="mt-6 flex justify-center">
                         <button
                             @click="saveChanges"
                             class="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                             :disabled="!hasPendingChanges || isSaving"
                         >
-        <span v-if="isSaving">
-            <span
-                class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-solid border-current border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite] mr-2"></span>
-            Salvando...
-        </span>
+                            <span v-if="isSaving">
+                                <span
+                                    class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-solid border-current border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite] mr-2"></span>
+                                Salvando...
+                            </span>
                             <span v-else>
-            Salvar Alterações
-            <span v-if="hasPendingChanges" class="ml-2 bg-white text-blue-600 rounded-full px-2 py-1 text-xs">
-                {{ pendingChanges.length }}
-            </span>
-        </span>
+                                Salvar Alterações
+                                <span v-if="hasPendingChanges"
+                                      class="ml-2 bg-white text-blue-600 rounded-full px-2 py-1 text-xs">
+                                    {{ pendingChanges.length }}
+                                </span>
+                            </span>
                         </button>
                     </div>
                 </div>
@@ -421,6 +435,53 @@ const hasPendingChanges = computed(() => {
             <footer class="py-16 text-center text-sm text-black dark:text-white/70">
                 Laravel v{{ laravelVersion }} (PHP v{{ phpVersion }})
             </footer>
+        </div>
+
+        <div v-if="showUserSelector" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl max-w-md w-full">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-bold">Selecionar Usuário</h3>
+                    <button @click="showUserSelector = false" class="text-gray-500 hover:text-gray-700">
+                        <span class="text-xl">&times;</span>
+                    </button>
+                </div>
+
+                <div class="text-sm mb-4">
+                    <p>Data: {{ selectedShiftInfo ? formatDateDisplay(selectedShiftInfo.date) : '' }}</p>
+                    <p>Turno: {{ selectedShiftInfo ? selectedShiftInfo.shift : '' }}</p>
+                </div>
+
+                <div class="max-h-60 overflow-y-auto">
+                    <div v-if="allUsers.length === 0" class="text-center py-4 text-gray-500">
+                        Carregando usuários...
+                    </div>
+
+                    <div v-else class="space-y-2">
+                        <button
+                            v-for="user in allUsers"
+                            :key="user.id"
+                            @click="assignUserToShift(user)"
+                            class="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg flex items-center"
+                        >
+    <span class="flex-grow">
+        <span>{{ user.name }}</span>
+        <span class="text-xs text-gray-500 ml-2">(ID: {{ user.id }})</span>
+    </span>
+                            <span v-if="isUserAssignedToSelectedShift(user)"
+                                  class="bg-green-500 text-white text-xs px-2 py-1 rounded-full">
+        Atribuído
+    </span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="mt-4 flex justify-end">
+                    <button @click="showUserSelector = false"
+                            class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-white">
+                        Cancelar
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 </template>
