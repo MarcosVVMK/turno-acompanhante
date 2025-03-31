@@ -13,9 +13,11 @@
         <!-- Scripts -->
         @routes
         @inertiaHead
-        @vite(['resources/js/app.ts', "resources/js/Pages/{$page['component']}.vue"])
+{{--        @vite(['resources/js/app.ts', "resources/js/Pages/{$page['component']}.vue"])--}}
     </head>
     <body class="font-sans antialiased">
         @inertia
+        @vite(['resources/js/app.ts', "resources/js/Pages/{$page['component']}.vue"])
+        <script src="{{ mix('/js/app.ts') }}" defer></script>
     </body>
 </html>
