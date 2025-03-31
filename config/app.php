@@ -52,7 +52,7 @@ return [
     |
     */
 
-    'url' => env('APP_URL', 'http://localhost'),
+    'url' => env('APP_URL', 'https://turno-acompanhante-16af75ac5b84.herokuapp.com/'),
 
     /*
     |--------------------------------------------------------------------------
