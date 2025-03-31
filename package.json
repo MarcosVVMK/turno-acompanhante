@@ -6,8 +6,7 @@
     "private": true,
     "type": "module",
     "scripts": {
-        "start": "serve -s build",
-        "build": "vue-tsc && vite build",
+        "build": "vue-tsc && vite build && vite build --ssr",
         "dev": "vite",
         "postinstall": "npm run build"
     },
