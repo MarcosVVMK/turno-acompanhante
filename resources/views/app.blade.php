@@ -14,7 +14,7 @@
         @routes
         @inertiaHead
         @vite(['resources/js/app.ts', "resources/js/Pages/{$page['component']}.vue"])
-        <div id="app" data-page="{{ json_encode($page) }}"></div>
+
     </head>
     <body class="font-sans antialiased">
         @inertia
