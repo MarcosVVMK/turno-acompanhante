@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import AuthenticatedLayout from '@/layouts/AuthenticatedLayout.vue';
 import { Head } from '@inertiajs/vue3';
-import Welcome from "@/pages/Welcome.vue";
+import Welcome from "@/Pages/Welcome.vue";
 </script>
 
 <template>
