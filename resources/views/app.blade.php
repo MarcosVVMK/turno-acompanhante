@@ -11,11 +11,11 @@
         <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
 
         <!-- Scripts -->
+        @vite(['resources/js/app.ts', "resources/js/Pages/{$page['component']}.vue"])
         @routes
         @inertiaHead
     </head>
     <body class="font-sans antialiased">
         @inertia
-        @vite(['resources/js/app.ts', "resources/js/Pages/{$page['component']}.vue"])
     </body>
 </html>
