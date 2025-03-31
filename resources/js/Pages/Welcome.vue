@@ -64,6 +64,7 @@ const pendingChanges = ref([]);
 const loadUsers = async () => {
     try {
         if (!page.props.auth.user) return;
+        if (!page.props.auth.user) return;
         const response = await axios.get('/api/users');
         allUsers.value = response.data;
     } catch (error) {
