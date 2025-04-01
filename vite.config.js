@@ -11,7 +11,7 @@ export default defineConfig({
         vue({
             template: {
                 transformAssetUrls: {
-                    base: null,
+                    base: 'https://turno-acompanhante-16af75ac5b84.herokuapp.com/',
                     includeAbsolute: false,
                 },
             },
