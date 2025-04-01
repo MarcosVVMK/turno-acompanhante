@@ -11,16 +11,10 @@ export default defineConfig({
         vue({
             template: {
                 transformAssetUrls: {
-                    base: 'https://turno-acompanhante-16af75ac5b84.herokuapp.com/',
-                    includeAbsolute: false,
+                    base: null,
+                    includeAbsolute: true,
                 },
             },
         }),
     ],
-    build: {
-        manifest: true,
-        rollupOptions: {
-            input: 'resources/js/app.ts',
-        },
-    }
 });
