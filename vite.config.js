@@ -11,7 +11,7 @@ export default defineConfig({
         vue({
             template: {
                 transformAssetUrls: {
-                    base: loadEnv('VITE_APP_URL') || '/',
+                    base: null,
                     includeAbsolute: false,
                 },
             },
