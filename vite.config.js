@@ -1,7 +1,6 @@
-import { defineConfig } from 'vite';
+import {defineConfig, loadEnv} from 'vite';
 import laravel from 'laravel-vite-plugin';
 import vue from '@vitejs/plugin-vue';
-
 export default defineConfig({
     plugins: [
         laravel({
@@ -12,10 +11,16 @@ export default defineConfig({
         vue({
             template: {
                 transformAssetUrls: {
-                    base: process.env.ASSET_URL || '/',
+                    base: null,
                     includeAbsolute: false,
                 },
             },
         }),
     ],
+    build: {
+        manifest: true,
+        rollupOptions: {
+            input: 'resources/js/app.ts',
+        },
+    }
 });
