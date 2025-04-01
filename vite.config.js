@@ -17,10 +17,10 @@ export default defineConfig({
             },
         }),
     ],
-    build: {
-        manifest: true,
-        rollupOptions: {
-            input: 'resources/js/app.ts',
-        },
-    }
+    // build: {
+    //     manifest: true,
+    //     rollupOptions: {
+    //         input: 'resources/js/app.ts',
+    //     },
+    // }
 });
